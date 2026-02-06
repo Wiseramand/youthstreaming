@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/authRoutes";
 import profileRoutes from "./routes/profileRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import vipRoutes from "./routes/vipRoutes";
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/vip", vipRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });

@@ -1,170 +1,80 @@
-# Deploy para Produção no Vercel
+# Youth Angola Streaming - Deployment Guide
 
-Guia completo para deployar o Youth Angola Streaming em produção.
+## 🚀 Deploy to Vercel
 
-## Pré-requisitos
+### Backend Deployment
 
-### 1. Banco de Dados em Nuvem
-Escolha um dos provedores abaixo:
+1. **Prepare Environment Variables**
+   - Copy `.env.example` to `.env.production`
+   - Fill in all required environment variables:
+     - `JWT_SECRET`: Generate a strong secret (use the script in `scripts/generate-secret.js`)
+     - `DATABASE_URL`: Your production database URL
+     - `SMTP_*`: Email configuration for notifications
+     - `FRONTEND_URL`: Your frontend URL
+     - `NODE_ENV`: Set to `production`
 
-#### Supabase (Recomendado)
-1. Crie conta em [supabase.com](https://supabase.com)
-2. Crie um novo projeto
-3. No painel, vá em Settings > Database
-4. Copie a string de conexão
+2. **Database Setup**
+   - Run migrations: `npx prisma migrate deploy`
+   - Create admin user: `node scripts/createAdmin.cjs`
 
-#### Outras opções:
-- **Railway**: railway.app
-- **Neon**: neon.tech
-- **PlanetScale**: planetscale.com
+3. **Deploy to Vercel**
+   - Connect your GitHub repository to Vercel
+   - Set environment variables in Vercel dashboard
+   - Deploy!
 
-### 2. Gerar JWT Secret
-```bash
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+### Frontend Deployment
+
+1. **Build the Application**
+   ```bash
+   npm run build
+   ```
+
+2. **Deploy to Vercel**
+   - Connect your GitHub repository
+   - Set `VITE_API_URL` to your backend URL
+   - Deploy!
+
+## 📋 Environment Variables
+
+### Required for Backend
+```env
+NODE_ENV=production
+PORT=4000
+JWT_SECRET=your-super-secret-jwt-key-here
+DATABASE_URL="postgresql://user:password@host:port/dbname"
+FRONTEND_URL="https://your-frontend.vercel.app"
 ```
 
-## Configuração no Vercel
-
-### 1. Conectar ao GitHub
-1. Acesse [vercel.com](https://vercel.com)
-2. Conecte sua conta GitHub
-3. Importe o repositório `youthstreaming`
-
-### 2. Configurar Variáveis de Ambiente
-
-No painel do Vercel, vá em Settings > Environment Variables e adicione:
-
-#### Backend Environment Variables:
-```
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
-JWT_SECRET="SEU_JWT_SECRET_AQUI"
-NODE_ENV="production"
-FRONTEND_URL="https://seu-projeto.vercel.app"
+### Optional for Email Notifications
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=noreply@youthangola.com
 ```
 
-#### Frontend Environment Variables:
-```
-VITE_API_URL="https://seu-backend.vercel.app"
-```
+## 🔧 Database Schema
 
-### 3. Configurar Build
+The application uses Prisma ORM with the following models:
 
-#### Frontend:
-- **Build Command**: `npm run build`
-- **Output Directory**: `dist`
-- **Install Command**: `npm install`
+- **User**: Authentication and roles
+- **Profile**: User profiles and preferences
+- **Stream**: Live streams and VOD
+- **Donation**: Payment tracking
+- **ChatMessage**: Real-time chat
 
-#### Backend:
-- **Build Command**: `cd backend && npm run build`
-- **Output Directory**: `backend/dist`
-- **Install Command**: `cd backend && npm install`
+## 🚨 Production Checklist
 
-## Deploy
+- [ ] Generate strong JWT secret
+- [ ] Set up production database
+- [ ] Configure SMTP for email notifications
+- [ ] Set up SSL certificates
+- [ ] Configure CORS for production
+- [ ] Create admin user
+- [ ] Test all endpoints
+- [ ] Monitor logs and performance
 
-### 1. Deploy do Backend
-```bash
-cd backend
-npm run build
-```
+## 📞 Support
 
-### 2. Deploy do Frontend
-```bash
-npm run build
-```
-
-### 3. Verificar Deploy
-- Frontend: `https://seu-projeto.vercel.app`
-- Backend: `https://seu-backend.vercel.app`
-
-## Pós-Deploy
-
-### 1. Criar Admin
-Acesse o backend e execute:
-```bash
-cd backend
-node scripts/createAdmin.cjs
-```
-
-### 2. Testar API
-Teste as rotas:
-- `GET /health` - Verifica se o backend está online
-- `POST /api/auth/login` - Testa autenticação
-
-### 3. Monitoramento
-- Verifique logs no painel do Vercel
-- Monitore uso de banco de dados
-- Configure alertas de erro
-
-## Troubleshooting
-
-### Erros Comuns:
-
-#### 1. JWT Secret muito curto
-**Erro**: "jwt malformed"
-**Solução**: Use um JWT Secret com pelo menos 32 caracteres
-
-#### 2. Conexão com banco de dados
-**Erro**: "connection refused"
-**Solução**: Verifique DATABASE_URL e permissões de IP
-
-#### 3. CORS bloqueado
-**Erro**: "CORS policy blocked"
-**Solução**: Verifique FRONTEND_URL nas variáveis de ambiente
-
-#### 4. Build falhando
-**Erro**: "Module not found"
-**Solução**: Verifique dependências no package.json
-
-## Segurança
-
-### 1. Rotas Protegidas
-Todas as rotas sensíveis exigem autenticação JWT:
-- `/api/profile/*` - Perfil do usuário
-- `/api/admin/*` - Administração
-- `/api/donations/*` - Doações
-- `/api/streams/*` - Streams
-
-### 2. Validação de Dados
-Todas as entradas são validadas com Zod Schema.
-
-### 3. Senhas Criptografadas
-Senhas são armazenadas com bcrypt (salt rounds: 10).
-
-## Performance
-
-### 1. Banco de Dados
-- Use conexão SSL
-- Configure pool de conexões
-- Monitore queries lentas
-
-### 2. Cache
-- Implementar cache para streams populares
-- Considerar Redis para sessões
-
-### 3. CDN
-- Servir assets estáticos via CDN
-- Comprimir imagens e vídeos
-
-## Manutenção
-
-### 1. Backups
-Configure backups automáticos no seu provedor de banco de dados.
-
-### 2. Updates
-Mantenha dependências atualizadas:
-```bash
-npm update
-cd backend && npm update
-```
-
-### 3. Monitoramento
-- Logs de erro
-- Métricas de performance
-- Uso de recursos
-
-## Suporte
-
-Para suporte:
-1. Verifique logs no Vercel
-2. Teste localmente antes de deployar
-3. Consulte a documentação do Prisma e Express
+For deployment issues or questions, check the [Issues](https://github.com/your-repo/issues) or contact the development team.
