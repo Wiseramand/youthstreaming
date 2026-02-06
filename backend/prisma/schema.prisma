@@ -14,13 +14,15 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String      @id @default(cuid())
+  email     String      @unique
   password  String
-  role      Role     @default(USER)
+  role      Role        @default(USER)
   profile   Profile?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  donations Donation[]
+  streams   Stream[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 }
 
 model Profile {
@@ -32,4 +34,32 @@ model Profile {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Donation {
+  id         String   @id @default(cuid())
+  amount     Float
+  method     String
+  identifier String?
+  name       String?
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Stream {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  sourceType  String   // "YOUTUBE" | "OBS"
+  sourceUrl   String
+  thumbnail   String
+  category    String   @default("Geral")
+  isLive      Boolean  @default(true)
+  accessLevel String   // "PUBLIC" | "VIP"
+  viewers     Int      @default(0)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

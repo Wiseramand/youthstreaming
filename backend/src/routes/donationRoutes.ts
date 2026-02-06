@@ -1,17 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-
-type Donation = {
-  id: string;
-  amount: number;
-  method: string;
-  identifier?: string;
-  name?: string;
-  createdAt: string;
-};
+import { authenticate, type AuthRequest } from "../middleware/auth";
+import prisma from "../lib/prisma";
 
 const router = Router();
-const donations: Donation[] = [];
 
 const donationSchema = z.object({
   amount: z.number().min(1),
@@ -20,24 +12,63 @@ const donationSchema = z.object({
   name: z.string().optional(),
 });
 
-router.get("/donations", (_req, res) => {
-  return res.json(donations);
+router.get("/donations", authenticate, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Usuário não autenticado" });
+    }
+    
+    const donations = await prisma.donation.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { profile: true } } },
+    });
+    return res.json(donations);
+  } catch (error) {
+    console.error("Error fetching donations:", error);
+    return res.status(500).json({ message: "Erro ao buscar doações" });
+  }
 });
 
-router.post("/donations", (req, res) => {
+router.post("/donations", authenticate, async (req: AuthRequest, res) => {
   const parsed = donationSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: "Dados inválidos", errors: parsed.error.flatten() });
   }
 
-  const newDonation: Donation = {
-    id: `don_${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    ...parsed.data,
-  };
+  try {
+    const newDonation = await prisma.donation.create({
+      data: {
+        ...parsed.data,
+        userId: req.user?.id,
+      },
+      include: { user: { select: { profile: true } } },
+    });
 
-  donations.unshift(newDonation);
-  return res.status(201).json(newDonation);
+    return res.status(201).json(newDonation);
+  } catch (error) {
+    console.error("Error creating donation:", error);
+    return res.status(500).json({ message: "Erro ao criar doação" });
+  }
+});
+
+// Rota para administradores verem todas as doações
+router.get("/admin/donations", authenticate, async (req: AuthRequest, res) => {
+  if (req.user?.role !== "ADMIN") {
+    return res.status(403).json({ message: "Acesso negado" });
+  }
+
+  try {
+    const donations = await prisma.donation.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { email: true, profile: true } } },
+    });
+    return res.json(donations);
+  } catch (error) {
+    console.error("Error fetching all donations:", error);
+    return res.status(500).json({ message: "Erro ao buscar doações" });
+  }
 });
 
 export default router;

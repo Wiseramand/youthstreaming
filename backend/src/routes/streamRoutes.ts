@@ -1,24 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { authenticate, authorizeAdmin } from "../middleware/auth";
-
-type StreamAccess = "PUBLIC" | "VIP";
-type StreamSource = "YOUTUBE" | "OBS";
-
-type StreamItem = {
-  id: string;
-  title: string;
-  description: string;
-  sourceType: StreamSource;
-  sourceUrl: string;
-  thumbnail: string;
-  category: string;
-  isLive: boolean;
-  accessLevel: StreamAccess;
-  viewers: number;
-};
-
-const streams: StreamItem[] = [];
+import { authenticate, authorizeAdmin, type AuthRequest } from "../middleware/auth";
+import prisma from "../lib/prisma";
 
 const router = Router();
 
@@ -34,34 +17,105 @@ const streamSchema = z.object({
   viewers: z.number().optional().default(0),
 });
 
-router.get("/streams", (_req, res) => {
-  return res.json(streams);
+router.get("/streams", authenticate, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Usuário não autenticado" });
+    }
+
+    const streams = await prisma.stream.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { profile: true } } },
+    });
+    return res.json(streams);
+  } catch (error) {
+    console.error("Error fetching streams:", error);
+    return res.status(500).json({ message: "Erro ao buscar streams" });
+  }
 });
 
-router.post("/streams", authenticate, authorizeAdmin, (req, res) => {
+router.post("/streams", authenticate, async (req: AuthRequest, res) => {
   const parsed = streamSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: "Dados inválidos", errors: parsed.error.flatten() });
   }
 
-  const newStream: StreamItem = {
-    id: `stream_${Date.now()}`,
-    ...parsed.data,
-  };
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Usuário não autenticado" });
+    }
 
-  streams.unshift(newStream);
-  return res.status(201).json(newStream);
+    const newStream = await prisma.stream.create({
+      data: {
+        ...parsed.data,
+        userId,
+      },
+      include: { user: { select: { profile: true } } },
+    });
+
+    return res.status(201).json(newStream);
+  } catch (error) {
+    console.error("Error creating stream:", error);
+    return res.status(500).json({ message: "Erro ao criar stream" });
+  }
 });
 
-router.delete("/streams/:id", authenticate, authorizeAdmin, (req, res) => {
+// Rota para administradores gerenciarem todos os streams
+router.get("/admin/streams", authenticate, authorizeAdmin, async (_req, res) => {
+  try {
+    const streams = await prisma.stream.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { email: true, profile: true } } },
+    });
+    return res.json(streams);
+  } catch (error) {
+    console.error("Error fetching all streams:", error);
+    return res.status(500).json({ message: "Erro ao buscar streams" });
+  }
+});
+
+router.put("/admin/streams/:id", authenticate, authorizeAdmin, async (req, res) => {
   const { id } = req.params;
-  const index = streams.findIndex((stream) => stream.id === id);
-  if (index === -1) {
-    return res.status(404).json({ message: "Stream não encontrada" });
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ message: "ID inválido" });
+  }
+  
+  const parsed = streamSchema.safeParse(req.body);
+  
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Dados inválidos", errors: parsed.error.flatten() });
   }
 
-  streams.splice(index, 1);
-  return res.status(204).send();
+  try {
+    const updatedStream = await prisma.stream.update({
+      where: { id },
+      data: parsed.data,
+      include: { user: { select: { email: true, profile: true } } },
+    });
+
+    return res.json(updatedStream);
+  } catch (error) {
+    console.error("Error updating stream:", error);
+    return res.status(500).json({ message: "Erro ao atualizar stream" });
+  }
+});
+
+router.delete("/admin/streams/:id", authenticate, authorizeAdmin, async (req, res) => {
+  const { id } = req.params;
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ message: "ID inválido" });
+  }
+  
+  try {
+    await prisma.stream.delete({ where: { id } });
+    return res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting stream:", error);
+    return res.status(500).json({ message: "Erro ao deletar stream" });
+  }
 });
 
 export default router;

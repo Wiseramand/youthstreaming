@@ -12,8 +12,13 @@ const updateSchema = z.object({
 });
 
 router.get("/me", authenticate, async (req: AuthRequest, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ message: "Usuário não autenticado" });
+  }
+
   const profile = await prisma.profile.findUnique({
-    where: { userId: req.user?.id },
+    where: { userId },
   });
 
   if (!profile) {
@@ -24,14 +29,24 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
 });
 
 router.put("/me", authenticate, async (req: AuthRequest, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ message: "Usuário não autenticado" });
+  }
+
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: "Dados inválidos", errors: parsed.error.flatten() });
   }
 
+  const data: { fullName?: string; avatarUrl?: string; bio?: string } = {};
+  if (parsed.data.fullName) data.fullName = parsed.data.fullName;
+  if (parsed.data.avatarUrl) data.avatarUrl = parsed.data.avatarUrl;
+  if (parsed.data.bio) data.bio = parsed.data.bio;
+
   const profile = await prisma.profile.update({
-    where: { userId: req.user?.id },
-    data: parsed.data,
+    where: { userId },
+    data,
   });
 
   return res.json(profile);

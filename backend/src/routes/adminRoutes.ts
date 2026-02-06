@@ -60,6 +60,10 @@ router.put("/users/:id", authenticate, authorizeAdmin, async (req, res) => {
   }
 
   const { id } = req.params;
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ message: "ID inválido" });
+  }
+  
   const { fullName, role, password } = parsed.data;
 
   const data: { role?: "USER" | "ADMIN" | "VIP"; password?: string; profile?: { update: { fullName?: string } } } = {};
@@ -78,6 +82,9 @@ router.put("/users/:id", authenticate, authorizeAdmin, async (req, res) => {
 
 router.delete("/users/:id", authenticate, authorizeAdmin, async (req, res) => {
   const { id } = req.params;
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ message: "ID inválido" });
+  }
   await prisma.user.delete({ where: { id } });
   return res.status(204).send();
 });
