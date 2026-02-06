@@ -38,11 +38,21 @@ router.post("/donations", authenticate, async (req: AuthRequest, res) => {
   }
 
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Usuário não autenticado" });
+    }
+
+    const data: { amount: number; method: string; identifier: string | null; name: string | null; userId: string } = {
+      amount: parsed.data.amount,
+      method: parsed.data.method,
+      identifier: parsed.data.identifier || null,
+      name: parsed.data.name || null,
+      userId,
+    };
+
     const newDonation = await prisma.donation.create({
-      data: {
-        ...parsed.data,
-        userId: req.user?.id,
-      },
+      data,
       include: { user: { select: { profile: true } } },
     });
 
