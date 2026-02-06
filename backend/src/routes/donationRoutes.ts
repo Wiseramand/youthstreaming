@@ -19,11 +19,23 @@ router.get("/donations", authenticate, async (req: AuthRequest, res) => {
       return res.status(401).json({ message: "Usuário não autenticado" });
     }
     
+    // Buscar doações no Prisma
     const donations = await prisma.donation.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      include: { user: { select: { profile: true } } },
+      where: {
+        userId: userId
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        user: {
+          include: {
+            profile: true
+          }
+        }
+      }
     });
+
     return res.json(donations);
   } catch (error) {
     console.error("Error fetching donations:", error);
@@ -43,17 +55,21 @@ router.post("/donations", authenticate, async (req: AuthRequest, res) => {
       return res.status(401).json({ message: "Usuário não autenticado" });
     }
 
-    const data: { amount: number; method: string; identifier: string | null; name: string | null; userId: string } = {
-      amount: parsed.data.amount,
-      method: parsed.data.method,
-      identifier: parsed.data.identifier || null,
-      name: parsed.data.name || null,
-      userId,
-    };
-
     const newDonation = await prisma.donation.create({
-      data,
-      include: { user: { select: { profile: true } } },
+      data: {
+        amount: parsed.data.amount,
+        method: parsed.data.method,
+        identifier: parsed.data.identifier || null,
+        name: parsed.data.name || null,
+        userId: userId
+      },
+      include: {
+        user: {
+          include: {
+            profile: true
+          }
+        }
+      }
     });
 
     return res.status(201).json(newDonation);
@@ -70,10 +86,20 @@ router.get("/admin/donations", authenticate, async (req: AuthRequest, res) => {
   }
 
   try {
+    // Buscar todas as doações no Prisma
     const donations = await prisma.donation.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { user: { select: { email: true, profile: true } } },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        user: {
+          include: {
+            profile: true
+          }
+        }
+      }
     });
+
     return res.json(donations);
   } catch (error) {
     console.error("Error fetching all donations:", error);

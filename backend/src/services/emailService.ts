@@ -1,5 +1,28 @@
-const nodemailer = require('nodemailer');
-import { User } from '../types';
+import nodemailer from 'nodemailer';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  age: number;
+  city: string;
+  country: string;
+  gender: string;
+  password?: string;
+  role: 'ADMIN' | 'USER' | 'VIP';
+  isActive: boolean;
+  expirationDate?: string;
+  allowedStreamIds?: string[];
+  avatar?: string;
+  favorites?: string[];
+  vipCredentials?: {
+    username: string;
+    code: string;
+    expiresAt: string;
+  };
+  createdAt: string;
+}
 
 export interface StreamLink {
   id: string;
@@ -12,7 +35,7 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: false,

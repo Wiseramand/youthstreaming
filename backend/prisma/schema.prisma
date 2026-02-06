@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,22 +10,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-  VIP
-}
-
 model User {
-  id        String      @id @default(cuid())
-  email     String      @unique
+  id        String   @id @default(cuid())
+  email     String   @unique
   password  String
-  role      Role        @default(USER)
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relações
   profile   Profile?
   donations Donation[]
   streams   Stream[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  chats     ChatMessage[]
+
+  @@map("users")
 }
 
 model Profile {
@@ -31,35 +33,78 @@ model Profile {
   fullName  String
   avatarUrl String?
   bio       String?
-  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relação
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
 }
 
 model Donation {
   id         String   @id @default(cuid())
-  amount     Float
+  amount     Decimal  @db.Decimal(10, 2)
   method     String
   identifier String?
   name       String?
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
   createdAt  DateTime @default(now())
+
+  // Relações
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
+  @@map("donations")
 }
 
 model Stream {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   title       String
   description String?
-  sourceType  String   // "YOUTUBE" | "OBS"
+  sourceType  SourceType  @default(YOUTUBE)
   sourceUrl   String
   thumbnail   String
-  category    String   @default("Geral")
-  isLive      Boolean  @default(true)
-  accessLevel String   // "PUBLIC" | "VIP"
-  viewers     Int      @default(0)
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  category    String      @default("Geral")
+  isLive      Boolean     @default(true)
+  accessLevel AccessLevel @default(PUBLIC)
+  viewers     Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relações
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
+  @@map("streams")
+}
+
+model ChatMessage {
+  id         String  @id @default(cuid())
+  userId     String
+  userName   String
+  userAvatar String?
+  text       String
+  isAdmin    Boolean @default(false)
+  timestamp  String
+
+  // Relação
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+enum Role {
+  USER
+  ADMIN
+  VIP
+}
+
+enum SourceType {
+  YOUTUBE
+  OBS
+}
+
+enum AccessLevel {
+  PUBLIC
+  VIP
 }

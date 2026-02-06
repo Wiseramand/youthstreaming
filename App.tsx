@@ -35,6 +35,7 @@ const Navbar: React.FC<{
     { id: 'schedule', label: 'Horários', icon: <Calendar className="w-4 h-4" /> },
   ];
 
+  // Admin panel only visible to logged-in admins
   if (user && user.role === UserRole.ADMIN) {
     navItems.push({ id: 'admin', label: 'Painel Admin', icon: <Lock className="w-4 h-4" /> });
   }
@@ -865,14 +866,7 @@ const App: React.FC = () => {
           Esqueceu a senha? <button onClick={() => setCurrentPage('reset')} className="text-teal-400 hover:text-teal-300 font-bold transition-colors ml-1">Redefinir senha</button>
         </p>
         <p className="text-center mt-3 text-slate-400 text-sm">
-          Área Admin? <button onClick={() => {
-            const adminKey = prompt('Digite a chave de acesso administrativo:');
-            if (adminKey === 'YOUTH_ADMIN_2025') {
-              setCurrentPage('admin-login');
-            } else {
-              alert('Chave de acesso inválida!');
-            }
-          }} className="text-amber-400 hover:text-amber-300 font-bold transition-colors ml-1">Entrar como admin</button>
+          Área administrativa? <button onClick={() => setCurrentPage('admin-login')} className="text-amber-400 hover:text-amber-300 font-bold transition-colors ml-1">Login Admin</button>
         </p>
         
         <div className="mt-8 pt-6 border-t border-white/5 text-center">

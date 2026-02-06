@@ -57,18 +57,36 @@ router.post("/reset-password", async (req, res) => {
   }
 
   const { email, newPassword } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    return res.status(404).json({ message: "Usuário não encontrado" });
+  
+  try {
+    // Verificar se o usuário existe
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: "Usuário não encontrado" });
+    }
+
+    // Criar hash da nova senha
+    const hash = await bcrypt.hash(newPassword, 10);
+    
+    // Atualizar senha
+    await prisma.user.update({
+      where: { email },
+      data: { password: hash }
+    });
+
+    return res.json({ message: "Senha atualizada com sucesso" });
+  } catch (error) {
+    console.error('Erro ao redefinir senha:', error);
+    return res.status(500).json({ message: "Erro ao redefinir senha" });
   }
+});
 
-  const hash = await bcrypt.hash(newPassword, 10);
-  await prisma.user.update({
-    where: { email },
-    data: { password: hash },
-  });
-
-  return res.json({ message: "Senha atualizada com sucesso" });
+// Rota de teste
+router.get("/test", (req, res) => {
+  res.json({ message: "API de autenticação está funcionando corretamente!" });
 });
 
 export default router;

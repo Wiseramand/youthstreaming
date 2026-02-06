@@ -7,11 +7,21 @@ import { authenticate, authorizeAdmin } from "../middleware/auth";
 const router = Router();
 
 router.get("/users", authenticate, authorizeAdmin, async (_req, res) => {
-  const users = await prisma.user.findMany({
-    select: { id: true, email: true, role: true, createdAt: true, profile: true },
-  });
+  try {
+    const users = await prisma.user.findMany({
+      include: {
+        profile: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
 
-  return res.json(users);
+    return res.json(users);
+  } catch (error) {
+    console.error('Erro ao buscar usuários:', error);
+    return res.status(500).json({ message: "Erro ao buscar usuários" });
+  }
 });
 
 const createUserSchema = z.object({
@@ -28,23 +38,42 @@ router.post("/users", authenticate, authorizeAdmin, async (req, res) => {
   }
 
   const { email, password, fullName, role } = parsed.data;
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return res.status(409).json({ message: "Email já cadastrado" });
+  
+  try {
+    // Verificar se o email já existe
+    const existing = await prisma.user.findUnique({
+      where: { email }
+    });
+    
+    if (existing) {
+      return res.status(409).json({ message: "Email já cadastrado" });
+    }
+
+    // Criar hash da senha
+    const hash = await bcrypt.hash(password, 10);
+
+    // Criar usuário
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hash,
+        role: role ?? "USER",
+        profile: {
+          create: {
+            fullName
+          }
+        }
+      },
+      include: {
+        profile: true
+      }
+    });
+
+    return res.status(201).json(user);
+  } catch (error) {
+    console.error('Erro ao criar usuário:', error);
+    return res.status(500).json({ message: "Erro ao criar usuário" });
   }
-
-  const hash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      email,
-      password: hash,
-      role: role ?? "USER",
-      profile: { create: { fullName } },
-    },
-    include: { profile: true },
-  });
-
-  return res.status(201).json(user);
 });
 
 const updateUserSchema = z.object({
@@ -66,18 +95,44 @@ router.put("/users/:id", authenticate, authorizeAdmin, async (req, res) => {
   
   const { fullName, role, password } = parsed.data;
 
-  const data: { role?: "USER" | "ADMIN" | "VIP"; password?: string; profile?: { update: { fullName?: string } } } = {};
-  if (role) data.role = role;
-  if (password) data.password = await bcrypt.hash(password, 10);
-  if (fullName) data.profile = { update: { fullName } };
+  try {
+    const updates: any = {};
+    if (role) updates.role = role;
+    if (password) updates.password = await bcrypt.hash(password, 10);
 
-  const user = await prisma.user.update({
-    where: { id },
-    data,
-    include: { profile: true },
-  });
+    // Atualizar usuário
+    if (Object.keys(updates).length > 0) {
+      await prisma.user.update({
+        where: { id },
+        data: updates
+      });
+    }
 
-  return res.json(user);
+    // Atualizar perfil
+    if (fullName) {
+      await prisma.profile.update({
+        where: { userId: id },
+        data: { fullName }
+      });
+    }
+
+    // Retornar usuário atualizado
+    const updatedUser = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        profile: true
+      }
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Usuário não encontrado" });
+    }
+
+    return res.json(updatedUser);
+  } catch (error) {
+    console.error('Erro ao atualizar usuário:', error);
+    return res.status(500).json({ message: "Erro ao atualizar usuário" });
+  }
 });
 
 router.delete("/users/:id", authenticate, authorizeAdmin, async (req, res) => {
@@ -85,8 +140,23 @@ router.delete("/users/:id", authenticate, authorizeAdmin, async (req, res) => {
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ message: "ID inválido" });
   }
-  await prisma.user.delete({ where: { id } });
-  return res.status(204).send();
+  
+  try {
+    // Deletar perfil primeiro (por causa da foreign key)
+    await prisma.profile.delete({
+      where: { userId: id }
+    });
+    
+    // Deletar usuário
+    await prisma.user.delete({
+      where: { id }
+    });
+    
+    return res.status(204).send();
+  } catch (error) {
+    console.error('Erro ao deletar usuário:', error);
+    return res.status(500).json({ message: "Erro ao deletar usuário" });
+  }
 });
 
 export default router;

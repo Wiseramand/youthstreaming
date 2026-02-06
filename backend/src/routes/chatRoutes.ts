@@ -1,27 +1,18 @@
 import { Router } from "express";
 import { z } from "zod";
+import prisma from "../lib/prisma";
 
 type ChatMessage = {
   id: string;
-  userId: string;
-  userName: string;
-  userAvatar?: string | undefined;
+  user_id: string;
+  user_name: string;
+  user_avatar?: string | undefined;
   text: string;
   timestamp: string;
-  isAdmin?: boolean | undefined;
+  is_admin?: boolean | undefined;
 };
 
 const router = Router();
-const messages: ChatMessage[] = [
-  {
-    id: "1",
-    userId: "system",
-    userName: "Youth Angola Bot",
-    text: "Bem-vindo ao chat ao vivo! Digam de onde nos acompanham 🇦🇴",
-    timestamp: new Date().toISOString(),
-    isAdmin: true,
-  },
-];
 
 const messageSchema = z.object({
   userId: z.string().min(1),
@@ -31,24 +22,45 @@ const messageSchema = z.object({
   isAdmin: z.boolean().optional(),
 });
 
-router.get("/chat", (_req, res) => {
-  return res.json(messages);
+router.get("/chat", async (_req, res) => {
+  try {
+    // Buscar mensagens no Prisma
+    const messages = await prisma.chatMessage.findMany({
+      orderBy: {
+        timestamp: 'desc'
+      }
+    });
+
+    return res.json(messages);
+  } catch (error) {
+    console.error('Erro ao buscar mensagens:', error);
+    return res.status(500).json({ message: "Erro ao buscar mensagens" });
+  }
 });
 
-router.post("/chat", (req, res) => {
+router.post("/chat", async (req, res) => {
   const parsed = messageSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: "Dados inválidos", errors: parsed.error.flatten() });
   }
 
-  const newMessage: ChatMessage = {
-    id: `msg_${Date.now()}`,
-    timestamp: new Date().toISOString(),
-    ...parsed.data,
-  };
+  try {
+    const newMessage = await prisma.chatMessage.create({
+      data: {
+        userId: parsed.data.userId,
+        userName: parsed.data.userName,
+        userAvatar: parsed.data.userAvatar || null,
+        text: parsed.data.text,
+        isAdmin: parsed.data.isAdmin || false,
+        timestamp: new Date().toISOString(),
+      }
+    });
 
-  messages.push(newMessage);
-  return res.status(201).json(newMessage);
+    return res.status(201).json(newMessage);
+  } catch (error) {
+    console.error('Erro ao criar mensagem:', error);
+    return res.status(500).json({ message: "Erro ao criar mensagem" });
+  }
 });
 
 export default router;

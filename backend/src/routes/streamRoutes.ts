@@ -24,11 +24,23 @@ router.get("/streams", authenticate, async (req: AuthRequest, res) => {
       return res.status(401).json({ message: "Usuário não autenticado" });
     }
 
+    // Buscar streams no Prisma
     const streams = await prisma.stream.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      include: { user: { select: { profile: true } } },
+      where: {
+        userId: userId
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        user: {
+          include: {
+            profile: true
+          }
+        }
+      }
     });
+
     return res.json(streams);
   } catch (error) {
     console.error("Error fetching streams:", error);
@@ -50,10 +62,24 @@ router.post("/streams", authenticate, async (req: AuthRequest, res) => {
 
     const newStream = await prisma.stream.create({
       data: {
-        ...parsed.data,
-        userId,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        sourceType: parsed.data.sourceType,
+        sourceUrl: parsed.data.sourceUrl,
+        thumbnail: parsed.data.thumbnail,
+        category: parsed.data.category,
+        isLive: parsed.data.isLive,
+        accessLevel: parsed.data.accessLevel,
+        viewers: parsed.data.viewers,
+        userId: userId
       },
-      include: { user: { select: { profile: true } } },
+      include: {
+        user: {
+          include: {
+            profile: true
+          }
+        }
+      }
     });
 
     return res.status(201).json(newStream);
@@ -66,10 +92,20 @@ router.post("/streams", authenticate, async (req: AuthRequest, res) => {
 // Rota para administradores gerenciarem todos os streams
 router.get("/admin/streams", authenticate, authorizeAdmin, async (_req, res) => {
   try {
+    // Buscar todos os streams no Prisma
     const streams = await prisma.stream.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { user: { select: { email: true, profile: true } } },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        user: {
+          include: {
+            profile: true
+          }
+        }
+      }
     });
+
     return res.json(streams);
   } catch (error) {
     console.error("Error fetching all streams:", error);
@@ -91,9 +127,27 @@ router.put("/admin/streams/:id", authenticate, authorizeAdmin, async (req, res) 
 
   try {
     const updatedStream = await prisma.stream.update({
-      where: { id },
-      data: parsed.data,
-      include: { user: { select: { email: true, profile: true } } },
+      where: {
+        id: id
+      },
+      data: {
+        title: parsed.data.title,
+        description: parsed.data.description,
+        sourceType: parsed.data.sourceType,
+        sourceUrl: parsed.data.sourceUrl,
+        thumbnail: parsed.data.thumbnail,
+        category: parsed.data.category,
+        isLive: parsed.data.isLive,
+        accessLevel: parsed.data.accessLevel,
+        viewers: parsed.data.viewers
+      },
+      include: {
+        user: {
+          include: {
+            profile: true
+          }
+        }
+      }
     });
 
     return res.json(updatedStream);
@@ -110,7 +164,11 @@ router.delete("/admin/streams/:id", authenticate, authorizeAdmin, async (req, re
   }
   
   try {
-    await prisma.stream.delete({ where: { id } });
+    await prisma.stream.delete({
+      where: {
+        id: id
+      }
+    });
     return res.status(204).send();
   } catch (error) {
     console.error("Error deleting stream:", error);

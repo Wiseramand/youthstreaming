@@ -3,7 +3,6 @@ import { authenticate } from '../middleware/auth';
 import prisma from '../lib/prisma';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
-// import { emailService } from '../services/emailService';
 
 const router = express.Router();
 
@@ -42,9 +41,9 @@ router.post('/users', authenticate, async (req, res) => {
 
     // Verificar se o email já existe
     const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email: data.email }
     });
-
+    
     if (existingUser) {
       return res.status(400).json({ error: 'Email já cadastrado' });
     }
@@ -58,27 +57,36 @@ router.post('/users', authenticate, async (req, res) => {
         email: data.email,
         password: hashedPassword,
         role: data.role,
+        profile: {
+          create: {
+            fullName: data.name,
+            avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random`,
+            bio: '',
+          }
+        }
       },
-    });
-
-    // Criar perfil
-    await prisma.profile.create({
-      data: {
-        fullName: data.name,
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random`,
-        bio: '',
-        userId: user.id,
-      },
+      include: {
+        profile: true
+      }
     });
 
     // Se houver streams associadas, criar os links privados
-    let streamLinks = [];
+    let streamLinks: Array<{
+      id: string;
+      title: string;
+      url: string;
+      accessCode: string;
+    }> = [];
     if (data.streamIds && data.streamIds.length > 0) {
       const streams = await prisma.stream.findMany({
-        where: { id: { in: data.streamIds } },
+        where: {
+          id: {
+            in: data.streamIds
+          }
+        }
       });
 
-      streamLinks = streams.map((s: any) => ({
+      streamLinks = streams.map((s) => ({
         id: s.id,
         title: s.title,
         url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/vip/stream/${s.id}?access=${s.accessCode || 'VIP_ACCESS_CODE'}`,
@@ -90,8 +98,8 @@ router.post('/users', authenticate, async (req, res) => {
         await prisma.stream.update({
           where: { id: streamId },
           data: {
-            accessCode: Math.random().toString(36).substr(2, 9).toUpperCase(),
-          },
+            accessCode: Math.random().toString(36).substr(2, 9).toUpperCase()
+          }
         });
       }
     }
@@ -122,7 +130,9 @@ router.post('/users', authenticate, async (req, res) => {
 router.get('/streams', authenticate, async (req, res) => {
   try {
     const streams = await prisma.stream.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
 
     res.json(streams);
@@ -143,12 +153,11 @@ router.post('/streams', authenticate, async (req, res) => {
         description: data.description,
         sourceUrl: data.sourceUrl,
         sourceType: data.sourceType,
-        thumbnail: data.thumbnail,
+        thumbnail: data.thumbnail || '',
         isLive: data.isLive,
         accessLevel: data.accessLevel,
-        scheduledTime: data.scheduledTime ? new Date(data.scheduledTime) : null,
         accessCode: data.accessCode || Math.random().toString(36).substr(2, 9).toUpperCase(),
-      },
+      }
     });
 
     res.status(201).json(stream);
@@ -168,7 +177,7 @@ router.post('/streams/:id/notify', authenticate, async (req, res) => {
     const { userIds } = req.body;
 
     const stream = await prisma.stream.findUnique({
-      where: { id },
+      where: { id: id }
     });
 
     if (!stream) {
@@ -178,18 +187,20 @@ router.post('/streams/:id/notify', authenticate, async (req, res) => {
     // Buscar usuários VIP
     const users = await prisma.user.findMany({
       where: {
-        id: { in: userIds },
-        role: 'VIP',
+        id: {
+          in: userIds
+        },
+        role: 'VIP'
       },
       include: {
-        profile: true,
-      },
+        profile: true
+      }
     });
 
     const streamLink = {
       id: stream.id,
       title: stream.title,
-      url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/vip/stream/${stream.id}?access=${stream.accessCode}`,
+      url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/vip/stream/${stream.id}?access=${stream.accessCode || 'VIP_ACCESS_CODE'}`,
       accessCode: stream.accessCode || 'VIP_ACCESS_CODE',
     };
 
